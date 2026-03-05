@@ -1,6 +1,9 @@
 package config
 
-import "os"
+import (
+	"os"
+	"strconv"
+)
 
 type Config struct {
 	APIPort     string
@@ -10,6 +13,10 @@ type Config struct {
 	RecentLimit int
 	MaxFileSize int64
 	MaxDuration float64
+
+	// Telegram
+	BotToken string
+	BotDev   bool
 }
 
 func Load() *Config {
@@ -20,13 +27,25 @@ func Load() *Config {
 		DBPath:      getEnv("DB_PATH", "./data/ruach.db"),
 		RecentLimit: 10,
 		MaxFileSize: 2 << 20, // 2MB
-		MaxDuration: 30.0,    // 30 seconds
+		MaxDuration: float64(getEnvInt("MAX_DURATION", 30)),
+
+		BotToken: getEnv("BOT_TOKEN", ""),
+		BotDev:   getEnv("BOT_DEV", "false") == "true",
 	}
 }
 
 func getEnv(key, fallback string) string {
 	if val := os.Getenv(key); val != "" {
 		return val
+	}
+	return fallback
+}
+
+func getEnvInt(key string, fallback int) int {
+	if val := os.Getenv(key); val != "" {
+		if i, err := strconv.Atoi(val); err == nil {
+			return i
+		}
 	}
 	return fallback
 }

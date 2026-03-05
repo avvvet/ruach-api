@@ -9,14 +9,19 @@ import (
 
 	"github.com/avvvet/ruach-api/config"
 	"github.com/avvvet/ruach-api/handler"
+	"github.com/avvvet/ruach-api/service"
 	"github.com/avvvet/ruach-api/store"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 	"github.com/go-chi/httprate"
+	"github.com/joho/godotenv"
 )
 
 func main() {
+	// load .env file (ignores error if file doesn't exist — safe for production)
+	_ = godotenv.Load()
+
 	// load config
 	cfg := config.Load()
 
@@ -58,6 +63,24 @@ func main() {
 	r.Post("/api/transcribe", handler.Transcribe(cfg))
 	r.Get("/api/recent", handler.Recent)
 	r.Get("/api/health", handler.Health(nil))
+
+	// ── Telegram bot ──────────────────────────────────────────
+	if cfg.BotToken == "" {
+		log.Printf("─────────────────────────────────────────")
+		log.Printf("bot: ✗ skipped — BOT_TOKEN not set in .env")
+		log.Printf("─────────────────────────────────────────")
+	} else {
+		webhookHandler, err := service.StartBot(cfg)
+		if err != nil {
+			log.Fatalf("bot: %v", err)
+		}
+		if webhookHandler != nil {
+			// production: register webhook route
+			r.Post("/telegram/webhook", webhookHandler)
+			log.Printf("bot: webhook registered at /telegram/webhook")
+		}
+	}
+	// ─────────────────────────────────────────────────────────
 
 	log.Printf("ruach-api: starting on port %s", cfg.APIPort)
 	log.Printf("ruach-api: forwarding to %s", cfg.RuachURL)
